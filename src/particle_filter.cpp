@@ -100,7 +100,6 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
         }
 
         std::sort(distances.begin(), distances.end());
-        // printf("OBS %d has %lf to %d\n", i, distances[0].first, distances[0].second);
         observations[i].id = distances[0].second - 1;
     }
 }
@@ -145,34 +144,30 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         std::vector<LandmarkObs> transformed_obs;
         for (int k = 0; k < observations.size(); k++) {
             LandmarkObs trans_obs;
-            trans_obs = observations[k];
+            
+            trans_obs.x = particleX + (observations[k].x * cos(particleTheta) - observations[k].y * sin(particleTheta));
+            trans_obs.y = particleY + (observations[k].x * sin(particleTheta) + observations[k].y * cos(particleTheta));
+            trans_obs.id = observations[k].id;
 
-            trans_obs.x = particleX + (trans_obs.x * cos(particleTheta) - trans_obs.y * sin(particleTheta));
-            trans_obs.y = particleY + (trans_obs.x * sin(particleTheta) + trans_obs.y * cos(particleTheta));
             transformed_obs.push_back(trans_obs);
         }
 
         dataAssociation(predicted_lm, transformed_obs);
 
         // Update weights. 
-        double W = 1.0;
+        particles[i].weight = 1.0;
         for (int k = 0; k < transformed_obs.size(); k++) {
-            double muX = map_landmarks.landmark_list[transformed_obs[k].id].x_f;
-            double muY = map_landmarks.landmark_list[transformed_obs[k].id].y_f;
-            double x = transformed_obs[k].x;
-            double y = transformed_obs[k].y;
+            double x = map_landmarks.landmark_list[transformed_obs[k].id].x_f;
+            double y = map_landmarks.landmark_list[transformed_obs[k].id].y_f;
+            double muX = transformed_obs[k].x;
+            double muY = transformed_obs[k].y;
             double sigX = std_landmark[0];
             double sigY = std_landmark[1];
 
-            double w = exp(-((x-muX)*(x-muX)/(2.*sigX*sigX) + (y-muY)*(y-muY)/(2.*sigY*sigY))) 
+            particles[i].weight *= exp(-((x-muX)*(x-muX)/(2.*sigX*sigX) + (y-muY)*(y-muY)/(2.*sigY*sigY))) 
                          / (2.*M_PI*sigX*sigY);
-            if (w < 1e-6)
-                w = 1e-6;
-
-            W *= w;
         }
 
-        particles[i].weight = W;
     }
 }
 
@@ -196,8 +191,6 @@ void ParticleFilter::resample() {
 
     particles = resampled_particles;
 
-    for (int i = 0; i < particles.size(); i++)
-        particles[i].id = i;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
